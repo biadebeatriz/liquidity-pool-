@@ -205,36 +205,85 @@ interface IUniswapV2Router02 is IUniswapV2Router01 {
 }
 
 interface IERC20 {
+  /**
+   * @dev Returns the amount of tokens in existence.
+   */
+  function totalSupply() external view returns (uint256);
 
-    function totalSupply() external view returns (uint256);
-    function balanceOf(address account) external view returns (uint256);
-    function transfer(address recipient, uint256 amount) external returns (bool);
-    function allowance(address owner, address spender) external view returns (uint256);
-    function approve(address spender, uint256 amount) external returns (bool);
+  /**
+   * @dev Returns the amount of tokens owned by `account`.
+   */
+  function balanceOf(address account) external view returns (uint256);
 
-    function transferFrom(
-        address sender,
-        address recipient,
-        uint256 amount
-    ) external returns (bool);
+  /**
+   * @dev Moves `amount` tokens from the caller's account to `recipient`.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transfer(address recipient, uint256 amount) external returns (bool);
 
-    event Transfer(address indexed from, address indexed to, uint256 value);
-    event Approval(address indexed owner, address indexed spender, uint256 value);
+  /**
+   * @dev Returns the remaining number of tokens that `spender` will be
+   * allowed to spend on behalf of `owner` through {transferFrom}. This is
+   * zero by default.
+   *
+   * This value changes when {approve} or {transferFrom} are called.
+   */
+  function allowance(address owner, address spender) external view returns (uint256);
+
+  /**
+   * @dev Sets `amount` as the allowance of `spender` over the caller's tokens.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * IMPORTANT: Beware that changing an allowance with this method brings the risk
+   * that someone may use both the old and the new allowance by unfortunate
+   * transaction ordering. One possible solution to mitigate this race
+   * condition is to first reduce the spender's allowance to 0 and set the
+   * desired value afterwards:
+   * https://github.com/ethereum/EIPs/issues/20#issuecomment-263524729
+   *
+   * Emits an {Approval} event.
+   */
+  function approve(address spender, uint256 amount) external returns (bool);
+
+  /**
+   * @dev Moves `amount` tokens from `sender` to `recipient` using the
+   * allowance mechanism. `amount` is then deducted from the caller's
+   * allowance.
+   *
+   * Returns a boolean value indicating whether the operation succeeded.
+   *
+   * Emits a {Transfer} event.
+   */
+  function transferFrom(address sender, address recipient, uint256 amount) external returns (bool);
+
+  /**
+   * @dev Emitted when `value` tokens are moved from one account (`from`) to
+   * another (`to`).
+   *
+   * Note that `value` may be zero.
+   */
+  event Transfer(address indexed from, address indexed to, uint256 value);
+
+  /**
+   * @dev Emitted when the allowance of a `spender` for an `owner` is set by
+   * a call to {approve}. `value` is the new allowance.
+   */
+  event Approval(address indexed owner, address indexed spender, uint256 value);
 }
 
 
-contract LP{
+contract LP {
  
     address public tokenA;
     address public tokenB;
-    address public owner;
-    uint256 public _amountA;
-    uint256 public _amountB;
-    uint256 public balanceOfA;
-    uint256 public balanceOfB;
-    address private constant ROUTER = 0x7a250d5630B4cF539739dF2C5dAcb4c659F2488D; 
+    address public owner;   
+    address private constant ROUTER = 0x1b02dA8Cb0d097eB8D57A175b88c7D8b47997506; 
     uint private min = 1;
-    IUniswapV2Router01 public uniswapV2Router;
+    IUniswapV2Router02 public uniswapV2Router;
 
 
     event Add(string message, uint val);
@@ -242,12 +291,10 @@ contract LP{
     event Addr(address addr);
 
     constructor(address _tokenA, address _tokenB) {
-        tokenA = _tokenA;
-        tokenB = _tokenB;
-        owner = msg.sender;
-        uniswapV2Router = IUniswapV2Router01(ROUTER);
-        balanceOfA = IERC20(tokenA).balanceOf(msg.sender);
-        balanceOfB = IERC20(tokenB).balanceOf(msg.sender);
+        tokenA = address(_tokenA);
+        tokenB = address(_tokenB);
+        owner = msg.sender;        
+        uniswapV2Router = IUniswapV2Router02(ROUTER);       
     }
 
     modifier onlyOwner(){
@@ -262,22 +309,22 @@ contract LP{
     }
 
 
+    function add() external onlyOwner {  
 
-    function add() external onlyOwner {
-        require(balanceOfA != 0, "don't have enough TokenA");
-        require(balanceOfB != 0, "don't have enough TokenB");
-        IERC20(tokenA).approve(ROUTER, _amountA);
-        IERC20(tokenB).approve(ROUTER, _amountB);
-        _amountA = IERC20(tokenA).balanceOf(address(this));
-        _amountB = IERC20(tokenB).balanceOf(address(this));
-        IERC20(tokenA).transferFrom(msg.sender, address(this), _amountA);
-        IERC20(tokenB).transferFrom(msg.sender, address(this), _amountB);
+        uint256 balanceOfA = IERC20(tokenA).balanceOf(address(this));
+        uint256 balanceOfB = IERC20(tokenB).balanceOf(address(this));
+        require(balanceOfA > 0, "don't have enough TokenA");
+        require(balanceOfB > 0, "don't have enough TokenB");
+        require(IERC20(tokenA).approve(ROUTER, balanceOfA), "approval to router use tokenA failed");
+        require(IERC20(tokenB).approve(ROUTER, balanceOfB), "approval to router use tokenA failed");
+        require(IERC20(tokenB).allowance(address(this), ROUTER) >= balanceOfB, "don't have enough allowance to Router for TokenB");
+        require(IERC20(tokenA).allowance(address(this), ROUTER) >= balanceOfA, "don't have enough allowance to Router for TokenA");
 
         (uint256 amountA, uint256 amountB, uint256 liquidity) = uniswapV2Router.addLiquidity(
             tokenA,
             tokenB,
-            _amountA,
-            _amountB,
+            balanceOfA,
+            balanceOfB,
             min,
             min,
             address(this),
